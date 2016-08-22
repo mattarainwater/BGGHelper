@@ -1,0 +1,6 @@
+<resources>
+    <string name="app_name">BGGHelper</string>
+    <string name="username_label">Username</string>>
+    <string name="username_hint">Please enter your username...</string>
+    <string name="username_button">Submit</string>
+</resources>
