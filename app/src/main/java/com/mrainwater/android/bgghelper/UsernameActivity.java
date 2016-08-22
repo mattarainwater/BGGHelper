@@ -21,6 +21,7 @@ import org.xmlpull.v1.XmlPullParserException;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.lang.reflect.Array;
 import java.util.ArrayList;
 
 public class UsernameActivity extends AppCompatActivity {
@@ -34,7 +35,6 @@ public class UsernameActivity extends AppCompatActivity {
     private ArrayList<BoardGame> boardGames;
     private ArrayList<BoardGameDetail> boardGameDetails;
 
-    private int countOfGames = 0;
     ProgressDialog progress;
 
     @Override
@@ -48,8 +48,8 @@ public class UsernameActivity extends AppCompatActivity {
         submitButton = (Button) findViewById(R.id.username_submit);
 
         volleyQueue = Volley.newRequestQueue(this);
-
         xmlParser = Xml.newPullParser();
+        boardGameDetails = new ArrayList<BoardGameDetail>();
 
         submitButton.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -82,13 +82,22 @@ public class UsernameActivity extends AppCompatActivity {
                                 xmlParser.setInput(is, null);
                                 parseCollectionXML(xmlParser);
                                 progress.setMessage("Getting your games... ");
-                                String ids = "";
+                                ArrayList<String> ids = new ArrayList<String>();
                                 for(int i = 0; i < boardGames.size(); i++)
                                 {
                                     BoardGame next = boardGames.get(i);
-                                    ids += next.objectid + ",";
+                                    ids.add(next.objectid + "");
                                 }
-                                volleyQueue.add(getGameRequest(ids));
+                                final ArrayList<String> batches = getIdBatches(ids);
+                                for(int i = 0; i < batches.size(); i ++) {
+                                    Handler handler = new Handler();
+                                    final int index = i;
+                                    handler.postDelayed(new Runnable() {
+                                        public void run() {
+                                            volleyQueue.add(getGameRequest(batches.get(index)));
+                                        }
+                                    }, index * 1000);
+                                }
                             } catch (Exception e) {
                                 e.printStackTrace();
                             }
@@ -100,6 +109,31 @@ public class UsernameActivity extends AppCompatActivity {
                     }
                 }
         );
+    }
+
+    private ArrayList<String> getIdBatches(ArrayList<String> ids) {
+        ArrayList<String> toReturn = new ArrayList<String>();
+
+        int maxCount = 50;
+        int currentCount = 0;
+        int iteration = 0;
+
+        while(((iteration * maxCount) + currentCount) < ids.size()) {
+            String currentString = "";
+            while(currentCount < maxCount) {
+                if(((iteration * maxCount) + currentCount) >= ids.size()) {
+                    break;
+                }
+
+                currentString += ids.get((iteration * maxCount) + currentCount) + ",";
+                currentCount++;
+            }
+            toReturn.add(currentString);
+            iteration++;
+            currentCount = 0;
+        }
+
+        return  toReturn;
     }
 
     private void parseCollectionXML(XmlPullParser parser) throws XmlPullParserException,IOException {
@@ -163,7 +197,6 @@ public class UsernameActivity extends AppCompatActivity {
 
     private void parseDetailXML(XmlPullParser parser, String id) throws XmlPullParserException,IOException {
         int eventType = parser.getEventType();
-        boardGameDetails = new ArrayList<BoardGameDetail>();
         BoardGameDetail currentGame = null;
 
         int currentMax = 0;
@@ -218,10 +251,12 @@ public class UsernameActivity extends AppCompatActivity {
     }
 
     private void launchIntent() {
-        progress.dismiss();
-        Intent intent = new Intent(this, PlayerSelectActivity.class);
-        intent.putExtra(PlayerSelectActivity.BOARD_GAME_LIST, boardGameDetails);
-        startActivity(intent);
+        if(boardGameDetails.size() == boardGames.size()) {
+            progress.dismiss();
+            Intent intent = new Intent(this, PlayerSelectActivity.class);
+            intent.putExtra(PlayerSelectActivity.BOARD_GAME_LIST, boardGameDetails);
+            startActivity(intent);
+        }
     }
 
     private class BGGAsyncTaskRunner extends AsyncTask<NetworkResponseRequest, String, String> {

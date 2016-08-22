@@ -53,6 +53,15 @@ public class PlayerSelectActivity extends AppCompatActivity {
         Collections.sort(playerCounts, new Comparator<String>() {
             public int compare(String string1, String string2)
             {
+                if(string1 == null && string2 == null) {
+                    return  0;
+                }
+                if(string1 == null) {
+                    return "".compareTo(string2);
+                }
+                if(string2 == null) {
+                    return string1.compareTo("");
+                }
                 return  string1.compareTo(string2);
             }
         });
@@ -61,23 +70,29 @@ public class PlayerSelectActivity extends AppCompatActivity {
             myButton.setLayoutParams(new ScrollView.LayoutParams(
                     ScrollView.LayoutParams.MATCH_PARENT,
                     ScrollView.LayoutParams.WRAP_CONTENT));
-            myButton.setText(playerCounts.get(i));
-            myButton.setTag(playerCounts.get(i));
-            myButton.setOnClickListener(new View.OnClickListener() {
-                @Override
-                public void onClick(View v) {
-                    String tag = (String)v.getTag();
-                    timeList = new ArrayList<BoardGameDetail>();
-                    for(int i = 0; i < mainList.size(); i ++) {
-                        if(mainList.get(i).numPlayers.equalsIgnoreCase(tag)) {
-                            timeList.add(mainList.get(i));
+            String playerCount = playerCounts.get(i);
+            if(playerCount != null) {
+                myButton.setText(playerCount);
+                myButton.setTag(playerCount);
+                myButton.setOnClickListener(new View.OnClickListener() {
+                    @Override
+                    public void onClick(View v) {
+                        String tag = (String)v.getTag();
+                        timeList = new ArrayList<BoardGameDetail>();
+                        for(int i = 0; i < mainList.size(); i ++) {
+                            String numPlayers = mainList.get(i).numPlayers;
+                            if(numPlayers != null) {
+                                if(numPlayers.equalsIgnoreCase(tag)) {
+                                    timeList.add(mainList.get(i));
+                                }
+                            }
                         }
+                        generateTimeButtons();
                     }
-                    generateTimeButtons();
-                }
-            });
+                });
 
-            scrollView.addView(myButton);
+                scrollView.addView(myButton);
+            }
         }
     }
 
