@@ -2,6 +2,7 @@ package com.mrainwater.android.bgghelper;
 
 import android.app.ProgressDialog;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.os.AsyncTask;
 import android.os.Handler;
 import android.support.v7.app.AppCompatActivity;
@@ -9,6 +10,7 @@ import android.os.Bundle;
 import android.util.Xml;
 import android.view.View;
 import android.widget.Button;
+import android.widget.CheckBox;
 import android.widget.EditText;
 import com.android.volley.*;
 import com.android.volley.toolbox.Volley;
@@ -26,8 +28,11 @@ import java.util.ArrayList;
 
 public class UsernameActivity extends AppCompatActivity {
 
+    private static final String BGG_PREFS = "BggPrefs";
+
     private EditText usernameInput;
     private Button submitButton;
+    private CheckBox rememberMeCheckbox;
     private RequestQueue volleyQueue;
 
     private XmlPullParser xmlParser;
@@ -46,6 +51,15 @@ public class UsernameActivity extends AppCompatActivity {
 
         usernameInput = (EditText) findViewById(R.id.username_edittext);
         submitButton = (Button) findViewById(R.id.username_submit);
+        rememberMeCheckbox = (CheckBox) findViewById(R.id.remember_me);
+
+        SharedPreferences settings = getSharedPreferences(BGG_PREFS, 0);
+        String username = settings.getString("username", null);
+        if(username != null)
+        {
+            usernameInput.setText(username);
+            rememberMeCheckbox.setChecked(true);
+        }
 
         volleyQueue = Volley.newRequestQueue(this);
         xmlParser = Xml.newPullParser();
@@ -60,18 +74,29 @@ public class UsernameActivity extends AppCompatActivity {
                 progress.show();
                 BGGAsyncTaskRunner runner = new BGGAsyncTaskRunner(volleyQueue);
                 String username = usernameInput.getText().toString();
+                SharedPreferences settings = getSharedPreferences(BGG_PREFS, 0);
+                SharedPreferences.Editor editor = settings.edit();
+                if(username != null && rememberMeCheckbox.isChecked())
+                {
+                    editor.putString("username", username);
+                }
+                else
+                {
+                    editor.remove("username");
+                }
+                editor.commit();
                 runner.execute(getCollectionRequest(username));
             }
         });
     }
 
     private NetworkResponseRequest  getCollectionRequest(String username){
-        String url ="http://www.boardgamegeek.com/xmlapi2/collection?excludesubtype=boardgameexpansion&username=" + username;
+        String url ="https://www.boardgamegeek.com/xmlapi2/collection?excludesubtype=boardgameexpansion&username=" + username;
 
         return new NetworkResponseRequest (Request.Method.GET, url,
                 new Response.Listener<NetworkResponse>() {
                     public void onResponse(NetworkResponse response) {
-                        if(response.statusCode == 202) {
+                        if(response.statusCode == 202 || response.statusCode == 301) {
                             String username = usernameInput.getText().toString();
                             volleyQueue.add(getCollectionRequest(username));
                         }
@@ -106,6 +131,13 @@ public class UsernameActivity extends AppCompatActivity {
                 },
                 new Response.ErrorListener() {
                     public void onErrorResponse(VolleyError error) {
+                        Handler handler = new Handler();
+                        handler.postDelayed(new Runnable() {
+                            public void run() {
+                                String username = usernameInput.getText().toString();
+                                volleyQueue.add(getCollectionRequest(username));
+                            }
+                        }, 10000);
                     }
                 }
         );
@@ -167,7 +199,7 @@ public class UsernameActivity extends AppCompatActivity {
     }
 
     private NetworkResponseRequest getGameRequest(final String id) {
-        String url ="http://www.boardgamegeek.com/xmlapi2/thing?id=" + id.substring(0,id.length()-1);;
+        String url ="https://www.boardgamegeek.com/xmlapi2/thing?id=" + id.substring(0,id.length()-1);;
 
         return new NetworkResponseRequest (Request.Method.GET, url,
                 new Response.Listener<NetworkResponse>() {
